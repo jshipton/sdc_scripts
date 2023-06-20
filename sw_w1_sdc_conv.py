@@ -21,19 +21,16 @@ import netCDF4 as nc
 
 day = 24.*60.*60.
 # setup resolution and timestepping parameters for convergence test
-dts = [ 3600., 1800.] # , 2400., 1800., 1200. ]
+dts = [ 3600., 2400., 1800., 1200. ]
 tmax = 1*day
-tmax=3600.
 ndumps = 1
 # setup shallow water parameters
 R = 6371220.
 H = 5960.
 kvals_Mvals={8:4, 6:3, 4:2, 2:1}
+kvals = [8, 6, 4, 2]
 
-kvals_Mvals={4:2, 2:1}
-kvals = [4, 2]
-
-cols=['b','g']
+cols=['b','g','r','c']
 
 
 ref_level= 1
