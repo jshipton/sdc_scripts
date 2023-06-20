@@ -18,33 +18,47 @@ m = PeriodicIntervalMesh(columns, L)
 # build volume mesh
 H = 1.0e4  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
-
-dirname = 'sk_sdc'
-
-output = OutputParameters(dirname=dirname,
-                          dumplist=['u'],
-                          perturbation_fields=['theta', 'rho'])
-
 parameters = CompressibleParameters()
 g = parameters.g
 Tsurf = 300.
+degree = 1
+domain = Domain(mesh, dt, 'CG', degree)
 
-state = State(mesh,
-              dt=dt,
-              output=output,
-              parameters=parameters)
 
-eqns = CompressibleEulerEquations(state, "CG", 1)
+dirname = 'sk_sdc'
+points_x = np.linspace(0., L, 100)
+points_z = [H/2.]
+points = np.array([p for p in itertools.product(points_x, points_z)])
+output = OutputParameters(dirname=dirname,
+                          dumplist=['u'],
+                          point_data=[('theta_perturbation', points)],
+                          log_level='INFO')
+diagnostic_fields = [CourantNumber(), Gradient("u"), Perturbation('theta'),
+                     Gradient("theta_perturbation"), Perturbation('rho'),
+                     RichardsonNumber("theta", parameters.g/Tsurf), Gradient("theta")]
+io = IO(domain, output, diagnostic_fields=diagnostic_fields)
+
+
+
+
+
+eqns = CompressibleEulerEquations(domain, parameters)
+
+# build time stepper
+M = 3
+maxk = 2
+scheme = FE_SDC(domain, M, maxk)
+stepper = Timestepper(eqns, scheme, io)
 
 # Initial conditions
-u0 = state.fields("u")
-rho0 = state.fields("rho")
-theta0 = state.fields("theta")
+u0 = stepper.fields("u")
+rho0 = stepper.fields("rho")
+theta0 = stepper.fields("theta")
 
 # spaces
-Vu = state.spaces("HDiv")
-Vt = state.spaces("theta")
-Vr = state.spaces("DG")
+Vu = domain.spaces("HDiv")
+Vt = domain.spaces("theta")
+Vr = domain.spaces("DG")
 
 # Thermodynamic constants required for setting initial conditions
 # and reference profiles
@@ -65,7 +79,7 @@ theta_b = Function(Vt).interpolate(thetab)
 rho_b = Function(Vr)
 
 # Calculate hydrostatic Pi
-compressible_hydrostatic_balance(state, theta_b, rho_b)
+compressible_hydrostatic_balance(eqns, theta_b, rho_b)
 
 a = 5.0e3
 deltaTheta = 1.0e-2
@@ -74,14 +88,7 @@ theta0.interpolate(theta_b + theta_pert)
 rho0.assign(rho_b)
 u0.project(as_vector([20.0, 0.0]))
 
-state.set_reference_profiles([('rho', rho_b),
+stepper.set_reference_profiles([('rho', rho_b),
                               ('theta', theta_b)])
-
-# build time stepper
-# scheme = SSPRK3(state)
-M = 3
-maxk = 2
-scheme = FE_SDC(state, M, maxk)
-stepper = Timestepper(state, ((eqns, scheme),))
 
 stepper.run(t=0, tmax=tmax)
