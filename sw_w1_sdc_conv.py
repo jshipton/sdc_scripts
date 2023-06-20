@@ -33,20 +33,10 @@ kvals = [8, 6, 4, 2]
 cols=['b','g','r','c']
 
 
-ref_level= 1
-degree = 1
+ref_level= 6
+degree = 3
 
-dir='/home/ab1679/sdc_scripts'
-ncfilename='sdc_w1'
-fn = dir + '/' + ncfilename + '.nc'
-ds = nc.Dataset(fn, 'w', format='NETCDF4')
-deltat = ds.createDimension('dt', len(dts))
-kvar = ds.createDimension('k', len(kvals_Mvals))
 
-kvar = ds.createVariable('k', np.int8, ('k',))
-
-deltat = ds.createVariable('dt', np.float64, ('dt',))
-error= ds.createVariable('error',np.float64,('k','dt',))
 
 D_errors=np.zeros((len(kvals_Mvals),len(dts)))
 idt = 0
@@ -59,7 +49,20 @@ for dt in dts:
     # Domain
     mesh = IcosahedralSphereMesh(radius=R,
                              refinement_level=ref_level, degree=2)
-    
+    comm = mesh.comm
+    rank = comm.Get_rank
+    dir='/data//home/ab1679/sdc_scripts'
+    ncfilename='sdc_w1%s'%(rank)
+    fn = dir + '/' + ncfilename + '.nc'
+    ds = nc.Dataset(fn, 'w', format='NETCDF4')
+    deltat = ds.createDimension('dt', len(dts))
+    kvar = ds.createDimension('k', len(kvals_Mvals))
+
+    kvar = ds.createVariable('k', np.int8, ('k',))
+
+    deltat = ds.createVariable('dt', np.float64, ('dt',))
+    error= ds.createVariable('error',np.float64,('k','dt',))
+
     x = SpatialCoordinate(mesh)
     domain = Domain(mesh, dt, 'BDM', degree)
 
@@ -159,11 +162,11 @@ for dt in dts:
 error[:,:] = D_errors
 deltat[:] = dts
 kvar[:] = kvals
-for i in range(len(kvals_Mvals)):
-    plt.loglog(dts, D_errors[i,:], cols[i], label='SDC%s'%(list(kvals_Mvals.items())[i][0]))
+# for i in range(len(kvals_Mvals)):
+#     plt.loglog(dts, D_errors[i,:], cols[i], label='SDC%s'%(list(kvals_Mvals.items())[i][0]))
 
-plt.legend()
-plt.title("Williamson1 D Convergece")
-figname = "sdc_w1_D_conv_deg%s.png"% (degree)
-plt.savefig(figname)
-plt.show()
+# plt.legend()
+# plt.title("Williamson1 D Convergece")
+# figname = "sdc_w1_D_conv_deg%s.png"% (degree)
+# plt.savefig(figname)
+# plt.show()
