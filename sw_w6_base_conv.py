@@ -20,11 +20,13 @@ import netCDF4 as nc
 
 day = 24.*60.*60.
 # setup resolution and timestepping parameters for convergence test
-dts = [ 400., 200., 100. ]
+dts = [ 100., 50., 25. ]
 tmax = 1*day
 ndumps = 1
 
-dt_true = 50. 
+dt_true = 10.
+
+scheme_index= [3]
 
 # setup shallow water parameters
 a = 6371220.
@@ -33,13 +35,11 @@ parameters = ShallowWaterParameters(H=H)
 kvals_Mvals={8:4, 6:3, 4:2, 2:1}
 kvals = [8, 6, 4, 2]
 
-kvals_Mvals={ 3:3}
+kvals_Mvals={4:4, 3:3, 2:2}
 
 cols=['b','g','r','c']
 
-ref_level= 5
-degree = 3
-ref_level = 2
+ref_level = 4
 degree = 1
 mesh = IcosahedralSphereMesh(radius=a,
                              refinement_level=ref_level, degree=2)
@@ -56,7 +56,7 @@ fexpr = 2*Omega * x[2] / a
 eqns = ShallowWaterEquations(domain, parameters, fexpr=fexpr, u_transport_option='vector_advection_form')
 
 # I/O
-dirname = "williamson_6_ref%s_dt%s_k%s_deg%s" % (ref_level, dt_true, 1, degree)
+dirname = "williamson_6_ref%s_dt%s_s%s_deg%s" % (ref_level, dt_true, 0, degree)
 dumpfreq = int(tmax / (ndumps*dt_true))
 output = OutputParameters(dirname=dirname,
                         dumpfreq=dumpfreq,
@@ -112,7 +112,7 @@ D = stepper.fields('D')
 utrue_data = u.dat.data[:]
 Dtrue_data = D.dat.data[:]
 
-print("dt", "k", "error_norm_D", "norm_D", "error_norm_u", "norm_u")
+print("dt,", "scheme,", "error_norm_D,", "norm_D,", "error_norm_u,", "norm_u")
 
 for dt in dts:
 
@@ -131,10 +131,10 @@ for dt in dts:
     Omega = parameters.Omega
     fexpr = 2*Omega * x[2] / a
     eqns = ShallowWaterEquations(domain, parameters, fexpr=fexpr, u_transport_option='vector_advection_form')
-    for kval, Mval in kvals_Mvals.items():
+    for s in scheme_index:
 
         # I/O
-        dirname = "williamson_6_ref%s_dt%s_k%s_deg%s" % (ref_level, dt, kval, degree)
+        dirname = "williamson_6_ref%s_dt%s_s%s_deg%s" % (ref_level, dt, s, degree)
         dumpfreq = int(tmax / (ndumps*dt))
         output = OutputParameters(dirname=dirname,
                                 dumpfreq=dumpfreq,
@@ -142,12 +142,18 @@ for dt in dts:
                                 log_level='INFO')
         io = IO(domain, output)
 
-        # Time stepper
-        k = kval
-        M = Mval
+         # Time stepper
+        if (s==1):
+            scheme= BackwardEuler(domain)
+        
+        elif(s==2):
+            gamma = 2.0 -  np.sqrt(2.0)
+            scheme= TR_BDF2(domain, gamma)
 
-        scheme = IMEX_SDC(domain, M, k)
-
+        elif(s==3):
+            scheme = AdamsMoulton(domain, order = 3)
+        elif(s==4):
+            scheme = RK4(domain)
         stepper = Timestepper(eqns, scheme, io)
 
         # ------------------------------------------------------------------------ #
@@ -205,4 +211,4 @@ for dt in dts:
         error_norm_u = errornorm(usol, stepper.fields("u"), mesh=mesh)
         norm_u = norm(usol, mesh=mesh)
 
-        print(dt,',', kval,',', error_norm_D,',', norm_D,',', error_norm_u,',', norm_u)
+        print(dt, ',',s,',', error_norm_D,',', norm_D,',', error_norm_u,',', norm_u)
